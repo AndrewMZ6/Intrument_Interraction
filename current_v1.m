@@ -1,12 +1,12 @@
 clear all;
 close all;
 
-% Create sig
-
+% РґР»РёРЅР° СЃРёРјРІРѕР»Р°
 Fourier_length = 1024;
+% Р·Р°С‰РёС‚РЅС‹Р№ РёРЅС‚РµСЂРІР°Р»
 Protection_Interval = 100; 
-
-N = 1648;                   % Длина сообщения
+% РґР»РёРЅР°
+N = 1648;               
 bits = randi([0, 1], 1, N);
 
 fc = 10e6;
@@ -14,13 +14,9 @@ fs = 50e6;
 L = 10*1024;  % 10240
 
 fstep = fs/L ;
-
-
-
 f = 0:fstep:fstep*(L - 1);
 
-% ---------- Генератор ---- QPSK модуляция битовой последовательности bits
-
+% QPSK РјРѕРґСѓР»СЏС†РёСЏ Р±РёС‚РѕРІРѕР№ РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅРѕСЃС‚Рё bits
 k = 1;
 for i = 1:2:N
     if bits(i) == 1 && bits(i+1) == 1
@@ -39,64 +35,46 @@ for i = 1:2:N
     k = k + 1;
 end
 
-% mod_data - это массив комплексных чисел, попрано созданный из массива
-% bits, где первому числу из пары присваивается реальная ось, а второму мнимая. Поэтому массив mod_data
-% и в два раза меньше
+% mod_data - СЌС‚Рѕ РјР°СЃСЃРёРІ РєРѕРјРїР»РµРєСЃРЅС‹С… С‡РёСЃРµР», РїРѕРїСЂР°РЅРѕ СЃРѕР·РґР°РЅРЅС‹Р№ РёР· РјР°СЃСЃРёРІР°
+% bits, РіРґРµ РїРµСЂРІРѕРјСѓ С‡РёСЃР»Сѓ РёР· РїР°СЂС‹ РїСЂРёСЃРІР°РёРІР°РµС‚СЃСЏ СЂРµР°Р»СЊРЅР°СЏ РѕСЃСЊ, Р° РІС‚РѕСЂРѕРјСѓ РјРЅРёРјР°СЏ. РџРѕСЌС‚РѕРјСѓ РјР°СЃСЃРёРІ mod_data
+% Рё РІ РґРІР° СЂР°Р·Р° РјРµРЅСЊС€Рµ
 
-% scatterplot(mod_data);
-
-%  ---------- Формирование OFDM сигнала ---- QPSK модуляция в частотной области
-
-
-% схематически массив spectrum выглядит так
-
-% [---- Нули длинной защитного интервала ------- QPSK модулированные частоты, которые и переносят данные ------ Нули длинной защитного интервала -------]
-
-mod_data_send = mod_data(1:Fourier_length - 2*Protection_Interval); % вырезаем кусочек 824
-
+% РІС‹СЂРµР·Р°РµРј РґР°РЅРЅС‹Рµ РґР»РёРЅРѕР№ 824 РёР· РїСЂРѕРёР·РІРѕР»СЊРЅРѕРіРѕ РјР°СЃСЃРёРІР° РґР°РЅРЅС‹С…
+mod_data_send = mod_data(1:Fourier_length - 2*Protection_Interval); 
+% РґРѕР±Р°РІР»СЏРµРј СЃР»РµРІР° Рё СЃРїСЂР°РІР° Р·Р°С‰РёС‚РЅС‹Рµ РёРЅС‚РµСЂРІР°Р»С‹ Рё 0 РґР»СЏ РЅРµСЃСѓС‰РµР№
 spectrum = [zeros(1, Protection_Interval - 1), mod_data_send(1:length(mod_data_send)/2), 0, mod_data_send(length(mod_data_send)/2+1:end), zeros(1, Protection_Interval)];
+
+%---------- СЌС‚Р° С‡Р°СЃС‚СЊ РѕС‚РЅРѕСЃРёС‚СЃСЏ Рє РїСЂРµРґС‹СЃРєР°Р¶РµРЅРёСЏРј
+% for i = 1:length(spectrum)
+%     spectrum_distorted(i) = spectrum(i)*1; % coeffs_inv(i)
+% end
 
 % for i = 1:length(spectrum)
 %     spectrum_distorted(i) = spectrum(i)*coeffs_inv(i);
 % end
 % spectrum(1024) = 2;
+%---------------------------------------------
 
-figure(1);
-plot( abs(spectrum));
-title('abs(spectrum)');
-xlabel('Freq');
-ylabel('Amplitude');
-grid on;
-
-
-spectrum_shifted = fftshift(spectrum); %fftshift
-% spectrum_shifted = spectrum;
+% РјРґРІРёРі СЃРїРµРєС‚СЂР° РґРµР»РёС‚ СЃРїРµРєС‚СЂ РїРѕРїР°Р»Р°Рј Рё РїРѕРјРµС‰Р°РµС‚ РїСЂР°РІСѓСЋ С‡Р°СЃС‚СЊ
+% РІР»РµРІРѕ, Р° Р»РµРІСѓСЋ РІРїСЂР°РІРѕ
+spectrum_shifted = fftshift(spectrum);
+% РўРµСЃС‚. РћР‘РџР¤
 spec_time = ifft(spectrum_shifted);
-% 
-figure(2);
-plot(abs(spectrum_shifted));
-title('abs(spectrum shifted)');
-xlabel('Freq');
-ylabel('Amplitude');
-grid on;
 
+% figure;
+% plot(abs(spectrum_shifted));
+% title('abs(spectrum shifted)');
+% xlabel('Freq');
+% ylabel('Amplitude');
+% grid on;
+
+% РјРµР¶РґСѓ СЃРґРІРёРЅСѓС‚С‹РјРё РїРѕР»РѕРІРёРЅР°РјРё СЃРїРµРєС‚СЂР° РІСЃС‚Р°РІР»СЏРµРј РЅСѓР»Рё
+% L РѕРїСЂРµРґРµР»СЏРµС‚ РґР»РёРЅСѓ РїРѕР»СѓС‡РёРІС€РµРіРѕСЃСЏ РјР°СЃСЃРёРІР°
 spec_zeros = ([spectrum_shifted(1:Fourier_length/2), zeros(1, (L -1024)), spectrum_shifted(Fourier_length/2 + 1:end)]);
 
-figure(3);
-plot(f, abs(spec_zeros));
-title('abs(spec zeros)');
-
-% Переход от частотной области к временной
+% РїРµСЂРµРІРѕРґРёРј РїРѕР»СѓС‡РµРЅРЅС‹Р№ СЃРїРµРєС‚СЂ РІРѕ РІСЂРµРјРµРЅРЅСѓСЋ РѕР±Р»Р°СЃС‚СЊ
 sig_time = ifft(spec_zeros);
-
-figure;
-plot( 1:length(sig_time), sig_time);
-title('sig time = ifft(spec_zeros)');
-xlabel('Time');
-ylabel('Amplitude');
-grid on;
-scatterplot(sig_time);
-
+% РІС‹РґРµР»СЏРµРј
 I = real(sig_time);
 Q = imag(sig_time);
 
@@ -117,11 +95,9 @@ for i = 1:length(I)
     SENT_TO_WAVEFORM_GENERATOR(i) = I_mod(i) + Q_mod(i);
 end
 
-% как выглядит SENT_TO_WAVEFORM_GENERATOR
-figure;
-plot(SENT_TO_WAVEFORM_GENERATOR);
-title('SENT TO WAVEFORM GENERATOR');
-scatterplot(SENT_TO_WAVEFORM_GENERATOR);
+% РєР°Рє РІС‹РіР»СЏРґРёС‚ SENT_TO_WAVEFORM_GENERATOR
+
+sent_fft = fft(SENT_TO_WAVEFORM_GENERATOR);
 
 % aboba = sig_time';
 % csvwrite('CSVfile2.csv', aboba);
@@ -138,24 +114,36 @@ scatterplot(SENT_TO_WAVEFORM_GENERATOR);
 % grid on
 % return
 % SENT_TO_WAVEFORM_GENERATOR = spectrum;
-% Длительность сигнала = кол-точек*период дискретизации
-t_L = (L/fs)*1e6; % микросекунды
+% Р”Р»РёС‚РµР»СЊРЅРѕСЃС‚СЊ СЃРёРіРЅР°Р»Р° = РєРѕР»-С‚РѕС‡РµРє*РїРµСЂРёРѕРґ РґРёСЃРєСЂРµС‚РёР·Р°С†РёРё
+t_L = (L/fs)*1e6; % РјРёРєСЂРѕСЃРµРєСѓРЅРґС‹
 t_F = (Fourier_length/fs)*1e6;
+
+figure;
+subplot(2,2,1);
+plot( abs(spectrum));
+title('Original OFDM symbol');xlabel('n');ylabel('Amplitude');grid on;
+subplot(2,2,2);
+plot(abs(spec_zeros));
+title('Shift + zeros interp');xlabel('n');ylabel('Amplitude');grid on;
+subplot(2,2,3);
+plot(f, abs(sent_fft));
+title('Bandpass spectrum');xlabel('freq');ylabel('Amplitude');grid on;
+
 %% Send to WG
 
-% Подключение к генератору и отправка сигнала на него
+% РџРѕРґРєР»СЋС‡РµРЅРёРµ Рє РіРµРЅРµСЂР°С‚РѕСЂСѓ Рё РѕС‚РїСЂР°РІРєР° СЃРёРіРЅР°Р»Р° РЅР° РЅРµРіРѕ
 
 % Find a VISA-USB object.
-% Защита от создания копий одного и того же объекта соединения
-% Если объект уже существует он не записан в переменную obj1, то записываем
-% его туда (04.10.2021, 1:42)
+% Р—Р°С‰РёС‚Р° РѕС‚ СЃРѕР·РґР°РЅРёСЏ РєРѕРїРёР№ РѕРґРЅРѕРіРѕ Рё С‚РѕРіРѕ Р¶Рµ РѕР±СЉРµРєС‚Р° СЃРѕРµРґРёРЅРµРЅРёСЏ
+% Р•СЃР»Рё РѕР±СЉРµРєС‚ СѓР¶Рµ СЃСѓС‰РµСЃС‚РІСѓРµС‚ РѕРЅ РЅРµ Р·Р°РїРёСЃР°РЅ РІ РїРµСЂРµРјРµРЅРЅСѓСЋ obj1, С‚Рѕ Р·Р°РїРёСЃС‹РІР°РµРј
+% РµРіРѕ С‚СѓРґР° (04.10.2021, 1:42)
 WG_obj = instrfind('Type', 'visa-usb', 'RsrcName', 'USB0::0x0957::0x2807::MY57401328::0::INSTR', 'Tag', '');
 
 % Create the VISA-USB object if it does not exist
 % otherwise use the object that was found.
-if isempty(WG_obj) % В аргументах visa может применяться новое название 'KEYSIGHT', 
-    % а может и старое 'AGILENT'. Нужно смотреть через tmtool как для
-    % генератора так и для осциллографа
+if isempty(WG_obj) % Р’ Р°СЂРіСѓРјРµРЅС‚Р°С… visa РјРѕР¶РµС‚ РїСЂРёРјРµРЅСЏС‚СЊСЃСЏ РЅРѕРІРѕРµ РЅР°Р·РІР°РЅРёРµ 'KEYSIGHT', 
+    % Р° РјРѕР¶РµС‚ Рё СЃС‚Р°СЂРѕРµ 'AGILENT'. РќСѓР¶РЅРѕ СЃРјРѕС‚СЂРµС‚СЊ С‡РµСЂРµР· tmtool РєР°Рє РґР»СЏ
+    % РіРµРЅРµСЂР°С‚РѕСЂР° С‚Р°Рє Рё РґР»СЏ РѕСЃС†РёР»Р»РѕРіСЂР°С„Р°
     WG_obj = visa('Agilent', 'USB0::0x0957::0x2807::MY57401328::0::INSTR');
 else
     fclose(WG_obj);
@@ -219,18 +207,25 @@ waitbar(.1,h,mes);
 
 %send waveform to 33500
 fprintf(WG_obj, 'SOURce1:DATA:VOLatile:CLEar'); %Clear volatile memory
-fprintf(WG_obj, 'FORM:BORD SWAP');  %configure the box to correctly accept the binary arb points
-SENT_TO_WG_Bytes=num2str(length(SENT_TO_WAVEFORM_GENERATOR) * 4); %# of bytes
-header= ['SOURce1:DATA:ARBitrary ' name ', #' num2str(length(SENT_TO_WG_Bytes)) SENT_TO_WG_Bytes]; %create header
-binblockBytes = typecast(SENT_TO_WAVEFORM_GENERATOR, 'uint8');  %convert datapoints to binary before sending
-fwrite(WG_obj, [header binblockBytes], 'uint8'); %combine header and datapoints then send to instrument
-fprintf(WG_obj, '*WAI');   %Make sure no other commands are exectued until arb is done downloadin
+%configure the box to correctly accept the binary arb points
+fprintf(WG_obj, 'FORM:BORD SWAP');  
+%# of bytes
+SENT_TO_WG_Bytes=num2str(length(SENT_TO_WAVEFORM_GENERATOR) * 4); 
+%create header
+header= ['SOURce1:DATA:ARBitrary ', name, ', #', num2str(length(SENT_TO_WG_Bytes)), SENT_TO_WG_Bytes]; 
+%convert datapoints to binary before sending
+binblockBytes = typecast(SENT_TO_WAVEFORM_GENERATOR, 'uint8');
+%combine header and datapoints then send to instrument
+fwrite(WG_obj, [header binblockBytes], 'uint8');
+%Make sure no other commands are exectued until arb is done downloadin
+fprintf(WG_obj, '*WAI');   
 %update waitbar
 waitbar(.8,h,mes);
 %Set desired configuration for channel 1
 command = ['SOURce1:FUNCtion:ARBitrary ' name];
 %fprintf(fgen,'SOURce1:FUNCtion:ARBitrary GPETE'); % set current arb waveform to defined arb testrise
-fprintf(WG_obj,command); % set current arb waveform to defined arb testrise
+fprintf(WG_obj,command); 
+% set current arb waveform to defined arb testrise
 command = ['MMEM:STOR:DATA1 "INT:\' name '.arb"'];
 %fprintf(fgen,'MMEM:STOR:DATA1 "INT:\GPETE.arb"');%store arb in intermal NV memory
 fprintf(WG_obj,command);
@@ -262,12 +257,12 @@ else
    fprintf (errorcheck)
 end
 
-fclose(WG_obj);
+% fclose(WG_obj);
 
 
 %% WavReadIQData unpacked
 
-close all;
+
 
 % Connecting to EXA SA
 if ~isempty(instrfind)
@@ -323,57 +318,59 @@ invoke(exa, 'QuerySCPI', '*OPC?');
 interface=get(exa,'interface');
 
 % Tell it the precision
-fprintf(interface,':FORM:DATA ASC');
+fprintf(interface,':FORM:DATA ASCii');
 fprintf(interface,'*OPC?');
 % fprintf(interface,':FORM:DATA MATLAB');
 
 fprintf(interface,':READ:WAV0?');
 
-% l содержит сырые данные с анализатора типа <char>
+% l СЃРѕРґРµСЂР¶РёС‚ СЃС‹СЂС‹Рµ РґР°РЅРЅС‹Рµ СЃ Р°РЅР°Р»РёР·Р°С‚РѕСЂР° С‚РёРїР° <char>
 % '2.306786738E-02,1.153779309E-02,1.795095950E-02,...'
 l = fscanf(interface);
-% data массив чисел <double>
+% data РјР°СЃСЃРёРІ С‡РёСЃРµР» <double>
 data = str2num(l);
-% нечетные в I - 1, 3, 5, ...
-% четные в Q - 2, 4, 6, ...
+% РЅРµС‡РµС‚РЅС‹Рµ РІ inphase - 1, 3, 5, ...
+% С‡РµС‚РЅС‹Рµ РІ quad - 2, 4, 6, ...
 inphase = data(1:2:end);
 quad = data(2:2:end);
-% создаём комплексный массив
+% СЃРѕР·РґР°С‘Рј РєРѕРјРїР»РµРєСЃРЅС‹Р№ РјР°СЃСЃРёРІ
 compl = complex(inphase, quad);
-% спектр комплексного массива
+% СЃРїРµРєС‚СЂ РєРѕРјРїР»РµРєСЃРЅРѕРіРѕ РјР°СЃСЃРёРІР°
 fft_com = fft(compl);
-% график модуля спектра
-figure;
-plot(abs(fft_com));
-title('график спектра (fft com = fft(compl))');
-% созвездие спектра
-scatterplot(fft_com);
-title('созвездие спектра (fft com)');grid on;
 
-% spec_time = ifft(spectrum)
-%
-[corrr, lags] = xcorr(spec_time, compl);
-figure;
-plot(abs(corrr));
-title('correlation');
-
+% СЃРѕР·РІРµР·РґРёРµ СЃРїРµРєС‚СЂР°
+% scatterplot(fft_com);
+% title('СЃРѕР·РІРµР·РґРёРµ СЃРїРµРєС‚СЂР° (fft com)');grid on;
+% РљРѕСЂСЂРµР»СЏС†РёСЏ Рё РјР°РєСЃРёРјСѓРј РєРѕСЂСЂРµР»СЏС†РёРё
 [corrr2, lags2] = xcorr(sig_time, compl);
 [cor2, pos2] = max(corrr2);
-figure;
-plot(abs(corrr2));
-title('correlation2');
 
 newsig = compl(abs(pos2):abs(pos2) + length(sig_time));
 newspec = fft(newsig);
-figure;
-plot(abs(newspec));
-title('newspec');
+% figure;
+% plot(abs(newspec));
+% title('newspec');
 newcut = [newspec(1:512), newspec(end - 511:end)];
-figure;
-plot(abs(newcut));
+% cutshift РёРјРµРµС‚ РІРёРґ РїРѕС…РѕР¶РёР№ РЅР° spectrum
+cutshift = fftshift(newcut);
 scatterplot(newcut);
+title('РЎРѕР·РІРµР·РґРёРµ РІС‹СЂРµР·Р°РЅРЅРѕРіРѕ СЃРїРµРєС‚СЂР°');
 
-%% Эквалайзирование
+figure;
+subplot(2,2,1);
+% РіСЂР°С„РёРє РјРѕРґСѓР»СЏ СЃРїРµРєС‚СЂР°
+plot(abs(fft_com));
+title('Р“СЂР°С„РёРє СЃРїРµРєС‚СЂР° РїСЂРёРЅСЏС‚РѕРіРѕ');
+subplot(2,2,2);
+plot(abs(corrr2));
+title('РљРѕСЂСЂРµР»СЏС†РёСЏ');
+subplot(2,2,3);
+% newcut РІС‹СЂРµР·Р°РЅРЅС‹Р№ РёР· СЃРїРµРєС‚СЂР° СЃРёРјРІРѕР» РґР»РёРЅРѕР№ 1024
+plot(abs(newcut));title('Р’С‹СЂРµР·Р°РЅРЅС‹Р№ СЃРёРјРІРѕР»');
+subplot(2,2,4);
+plot(abs(cutshift));title('РџСЂРёРЅСЏС‚С‹Р№ OFDM СЃРёРјРІРѕР»');
+return
+%% Р­РєРІР°Р»Р°Р№Р·РёСЂРѕРІР°РЅРёРµ
 ref = mod_data_send;
 figure;
 plot(ref);
@@ -388,6 +385,7 @@ title('newdata');grid on;
 % load('matlab.mat')
 TF_est = newdata./ref;
 figure;plot(TF_est);
+title('TF est');grid on;
 restored = newdata./TF_est;
 
 scatterplot(restored);
@@ -395,3 +393,75 @@ title('restored');grid on;
 
 
 % disp(['type of data is: ', class(data)]);
+
+%% Р”РµРјРѕРґСѓР»СЏС†РёСЏ
+
+mod_data_r = [spectrum_r_shifted(Protection_Interval:Protection_Interval + length(mod_data_send)/2- 1), spectrum_r_shifted(Protection_Interval + length(mod_data_send)/2 + 1:Fourier_length - Protection_Interval)];
+
+figure;
+plot(abs(mod_data_r));
+title('mod data r');
+grid on;
+
+scatterplot(mod_data_r,1,0,'r*');
+
+% Р”РµРјРѕРґСѓР»СЏС†РёСЏ mod_data_r
+k=1;
+for i = 1:length(mod_data_r)
+    if real(mod_data_r(i)) >0 && imag(mod_data_r (i)) >0
+        bits_demod_r (k) = 1; bits_demod_r (k+1) = 1;
+    end
+    if real(mod_data_r (i)) <0 && imag(mod_data_r(i)) >0
+        bits_demod_r (k) = 0; bits_demod_r (k+1) = 1;
+    end
+	if real(mod_data_r (i)) >0 && imag(mod_data_r (i)) <0
+        bits_demod_r (k) = 1; bits_demod_r (k+1) = 0;
+    end
+    if real(mod_data_r (i)) <0 && imag(mod_data_r (i)) <0
+        bits_demod_r (k) = 0; bits_demod_r (k+1) = 0;
+    end
+    k=k+2;
+end
+
+% Р“СЂР°С„РёРє РґРµРјРѕРґСѓР»РёСЂРѕРІР°РЅРЅРѕРіРѕ РїСЂРёРЅСЏС‚РѕРіРѕ СЃРёРіРЅР°Р»Р°, С‚.Рµ. Р±РёС‚С‹ РёРЅС„РѕСЂРјР°С†РёРё, РєРѕС‚РѕСЂС‹Рµ
+% РЅР°Рј Рё РЅСѓР¶РЅС‹
+figure;
+plot(bits_demod_r);
+title('bits demod r');
+xlim([1 100]);
+grid on;
+
+% for i = 1:length(bits_demod_r)
+%     if bits_demod_r(i) == 0
+%         bits_demod_r_fliped(i) = 1;
+%     if bits_demod_r(i) == 1
+%         bits_demod_r_fliped(i) = 0;
+%     end
+% end
+
+
+% РџСЂРѕРІРµСЂРєР° РЅР° РѕС€РёР±РєРё, СЃСЂР°РІРЅРµРЅРёРµ РїСЂРёРЅСЏС‚РѕРіРѕ bits_demod Рё РѕС‚РїСЂР°РІР»РµРЅРЅРѕРіРѕ
+% СЃРѕРѕР±С‰РµРЅРёСЏ bits
+err2 = biterr(bits_demod_r ,bits);
+
+%% РџСЂРµРґС‹СЃРєРєР°Р¶РµРЅРёРµ 
+
+% Sectrum СЌС‚Рѕ СЃРїРµРєС‚СЂ СЃРѕСЃС‚Р°РІР»РµРЅРЅС‹Р№ РёР· Р·Р°С€РёС‚РЅ РёРЅС‚РµСЂРІР°Р»Р° РЅСѓР»РµР№ + РґР°РЅРЅС‹Рµ + РЅСѓР»Рё
+% РІС‚РѕСЂРѕРі Р·Р°С‰РёС‚РЅРѕРіРѕ РёРЅС‚РµСЂРІР°Р»Р°
+for i = 1:length(cutshift) - 1  % 
+    coeffs(i) = cutshift(i)/spectrum(i);
+end
+
+for i = 1:length(coeffs)
+    coeffs_inv(i) = 1/coeffs(i);
+end
+
+%% Р”СЂСѓРіРёРµ РјРѕРґС‹ EXA
+% РЈРїСЂР°РІР»РµРЅРёРµ Р±РµР· РґСЂР°Р№РІРµСЂР°
+
+
+%% RHODE
+
+obj2 = tcpip('168.254.21.201');
+fopen(obj2);
+fprintf(obj2, '*IDN?');
