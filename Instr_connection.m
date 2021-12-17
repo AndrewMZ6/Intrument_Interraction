@@ -1,3 +1,10 @@
+%% Необходимые предваительные установки
+% 1 Драйвер инструмента 
+% 2 Keysight Connection Expert, который является частью IO Libraries Siute(для устновки visa)
+
+% Переключение между блоками: Ctrl + стрелка вверх/вниз
+%% Формирование проверочного сигнала
+
 clear all;
 close all;
 
@@ -8,6 +15,8 @@ Protection_Interval = 100;
 % длина
 N = 3648;               
 bits = randi([0, 1], 1, N);
+% randi - Uniformly distributed pseudorandmom integers
+% X = randi([imin, imax], strings, columns)
 
 fc = 10e6;
 fs = 50e6;
@@ -38,6 +47,8 @@ end
 % mod_data - это массив комплексных чисел, попрано созданный из массива
 % bits, где первому числу из пары присваивается реальная ось, а второму мнимая. Поэтому массив mod_data
 % и в два раза меньше
+% Длина mod_data в 2 раза меньше N, т.к. на одну ПАРУ бит N приходится
+% только ОДНО значение
 
 % вырезаем данные длиной 824 из произвольного массива данных
 mod_data_send = mod_data(1:Fourier_length - 2*Protection_Interval); 
@@ -46,56 +57,56 @@ pilot_data = mod_data(Fourier_length - 2*Protection_Interval + 1: Fourier_length
 % добавляем слева и справа защитные интервалы и 0 для несущей
 spectrum = [zeros(1, Protection_Interval - 1), mod_data_send(1:length(mod_data_send)/2), 0, mod_data_send(length(mod_data_send)/2+1:end), zeros(1, Protection_Interval)];
 spec_pilot=[zeros(1, Protection_Interval - 1), pilot_data(1:length(pilot_data)/2), 0, pilot_data(length(pilot_data)/2+1:end), zeros(1, Protection_Interval)];
-%---------- эта часть относится к предыскажениям
-% for i = 1:length(spectrum)
-%     spectrum_distorted(i) = spectrum(i)*1; % coeffs_inv(i)
-% end
+% Созданные нами спектры структурно выглядят следующим образом:
+% [99нулей, 412компл.значений,0длянесущей,412компл.значений, 100нулей]
 
-% for i = 1:length(spectrum)
-%     spectrum_distorted(i) = spectrum(i)*coeffs_inv(i);
-% end
-% spectrum(1024) = 2;
-%---------------------------------------------
-
-% мдвиг спектра делит спектр попалам и помещает правую часть
+% cдвиг спектра делит спектр попалам и помещает правую часть
 % влево, а левую вправо
+% _|-|-|_  -->  -|_ _|-|
 spectrum_shifted = fftshift(spectrum);
 pilot_shifted = fftshift(spec_pilot);
+
+
 % Тест. ОБПФ
 spec_time = ifft(spectrum_shifted);
-% pilot_time = ifft(pilot_shifted);
+spec_time_pilot = ifft(pilot_shifted);
+ref1_time = [spec_time_pilot, spec_time];
 
-% figure;
-% plot(abs(spectrum_shifted));
-% title('abs(spectrum shifted)');
-% xlabel('Freq');
-% ylabel('Amplitude');
-% grid on;
+figure;
+plot(abs(fft(ref1_time)));
 
 % между сдвинутыми половинами спектра вставляем нули
 % L определяет длину получившегося массива
+% -|_ _|-|  -->  -|_00000000000000000000000000000_|-|
 spec_zeros = ([spectrum_shifted(1:Fourier_length/2), zeros(1, (L -1024)), spectrum_shifted(Fourier_length/2 + 1:end)]);
 pilot_zeros = ([pilot_shifted(1:Fourier_length/2), zeros(1, (L -1024)), pilot_shifted(Fourier_length/2 + 1:end)]);
+
 % переводим полученный спектр во временную область
 sig_time = ifft(spec_zeros);
 pil_time = ifft(pilot_zeros);
-sum_time = [pil_time, sig_time];
+ref2_time = [pil_time, sig_time];
+
+figure;
+plot(abs(fft(pil_time)));
+
 % выделяем реальную (синфазную) и мнимую(квадратурную) части
 I = real(sig_time);
 Ip = real(pil_time);
 Q = imag(sig_time);
 Qp = imag(pil_time);
-% задаём массив времени, по которому будут строиться несущие
+
+% задаём массив времени, и несущие
 t_sig = [0:length(I) - 1]/fs;
 % t_sig = (0:1:L-1)/fs;
-
+sig_carrQ = -sin(2*pi*fc*t_sig);
 sig_carrI = cos(2*pi*fc*t_sig);
+
+% Посдка на несущую
 for i = 1:length(I)
     Ip_mod(i) = Ip(i)*sig_carrI(i);
     I_mod(i) = I(i)*sig_carrI(i);
 end
 
-sig_carrQ = -sin(2*pi*fc*t_sig);
 for i = 1:length(Q)
     Qp_mod(i) = Qp(i)*sig_carrQ(i);
     Q_mod(i) = Q(i)*sig_carrQ(i);
@@ -105,14 +116,13 @@ for i = 1:length(I)
     pilot_to_wg(i) = Ip_mod(i) + Qp_mod(i);
     data_to_wg(i) = I_mod(i) + Q_mod(i);
 end
+
+% Формируем конечный массив, отправляемый на генератор
 SENT_TO_WAVEFORM_GENERATOR = [pilot_to_wg, data_to_wg];
 
 % как выглядит SENT_TO_WAVEFORM_GENERATOR
-
 sent_fft = fft(SENT_TO_WAVEFORM_GENERATOR);
 
-% aboba = sig_time';
-% csvwrite('CSVfile2.csv', aboba);
 % figure(4)
 % subplot(2,1,1)
 % plot(abs(fft(SENT_TO_WAVEFORM_GENERATOR)))
@@ -126,9 +136,13 @@ sent_fft = fft(SENT_TO_WAVEFORM_GENERATOR);
 % grid on
 % return
 % SENT_TO_WAVEFORM_GENERATOR = spectrum;
+
 % Длительность сигнала = кол-точек*период дискретизации
+% С учетом интерполяии L точек
 t_L = (L/fs)*1e6; % микросекунды
+% Без учета интерполяции Fourier_length точек
 t_F = (Fourier_length/fs)*1e6;
+
 
 figure;
 subplot(2,2,1);
@@ -212,7 +226,7 @@ catch exception %problem occurred throw error message
     rethrow(exception);
 end
 
-%% Формирование и отправка данных на генератор(этот блок общий как для LAN так и для USB)
+%% Отправка данных на генератор 33500B(этот блок общий как для LAN так и для USB и запускается после соединения с инструментом)
 % Запрос имени инструмента
 fprintf (WG_obj, '*IDN?');
 idn = fscanf (WG_obj);
@@ -349,10 +363,6 @@ OSCI_Obj.ByteOrder = 'littleEndian';
 fopen(OSCI_Obj);
 % Instrument control and data retreival
 
-% Now control the instrument using SCPI commands. refer to the instrument
-% programming manual for your instrument for the correct SCPI commands for
-% your instrument.
-
 % Reset the instrument and autoscale and stop
 % fprintf(OSCI_Obj,'*RST; :AUTOSCALE'); 
 fprintf(OSCI_Obj,':STOP');
@@ -375,8 +385,10 @@ while ~operationComplete
 end
 % Get the data back as a WORD (i.e., INT16), other options are ASCII and BYTE
 fprintf(OSCI_Obj,':WAVEFORM:FORMAT WORD');
+
 % Set the byte order on the instrument as well
 fprintf(OSCI_Obj,':WAVEFORM:BYTEORDER LSBFirst');
+
 % Get the preamble block
 preambleBlock = query(OSCI_Obj,':WAVEFORM:PREAMBLE?');
 % The preamble block contains all of the current WAVEFORM settings.  
@@ -393,13 +405,17 @@ preambleBlock = query(OSCI_Obj,':WAVEFORM:PREAMBLE?');
 %    YORIGIN       : float32 - value is the voltage at center screen.
 %    YREFERENCE    : int32 - specifies the data point where y-origin
 %                            occurs.
+
 % Now send commmand to read data
 fprintf(OSCI_Obj,':WAV:DATA?');
+
 % read back the BINBLOCK with the data in specified format and store it in
 % the waveform structure. FREAD removes the extra terminator in the buffer
 waveform.RawData = binblockread(OSCI_Obj,'uint16'); fread(OSCI_Obj,1);
+
 % Read back the error queue on the instrument
 instrumentError = query(OSCI_Obj,':SYSTEM:ERR?');
+
 while ~isequal(instrumentError,['+0,"No error"' char(10)])
     disp(['Instrument Error: ' instrumentError]);
     instrumentError = query(OSCI_Obj,':SYSTEM:ERR?');
@@ -408,60 +424,68 @@ end
 % Массив с полученными данными
 RECIEVED_FROM_OSCI = waveform.RawData;
 
+% Закрыть соединение с инструментом
 fclose(OSCI_Obj);
-%% CXG N5166B Vector Generator USB visa
 
-% Find a VISA-USB object.
-device = instrfind('Type', 'visa-usb', 'RsrcName', 'USB0::0x0957::0x1F01::MY59100546::0::INSTR', 'Tag', '');
+%% CXG N5166B Vector Generator USB visa
+% Этот блок игнорируется если соединение происходит через LAN см. блок "CXG N5166B Vector Generator LAN"
+
+% Идентификатор (4 аргумент) берется из Keysight Connection Expert
+cxg = instrfind('Type', 'visa-usb', 'RsrcName', 'USB0::0x0957::0x1F01::MY59100546::0::INSTR', 'Tag', '');
 
 % Create the VISA-USB object if it does not exist
 % otherwise use the object that was found.
-if isempty(device)
-    device = visa('AGILENT', 'USB0::0x0957::0x1F01::MY59100546::0::INSTR');
+if isempty(cxg)
+    cxg = visa('AGILENT', 'USB0::0x0957::0x1F01::MY59100546::0::INSTR');
 else
-    fclose(device);
-    device = device(1);
+    fclose(cxg);
+    cxg = cxg(1);
 end
 
 device_buffer = 10000000*8;
-set(device,'OutputBufferSize',(device_buffer+125));
-% Connect to instrument object, obj1.
-fopen(device);
+set(cxg,'OutputBufferSize',(device_buffer+125));
+
+% Открыть соединение с инструментом
+fopen(cxg);
 
 %% CXG N5166B Vector Generator LAN
+% Этот блок игнорируется если соединение происходит через USB см. блок "CXG N5166B Vector Generator USB"
+
 % Чтобы посмотреть ip нажмите кнопку Utility -> I/O config -> LAN setup
-device = instrfind('Type', 'tcpip', 'RemoteHost', '192.168.082', 'RemotePort', 5025, 'Tag', '');
+cxg = instrfind('Type', 'tcpip', 'RemoteHost', '192.168.082', 'RemotePort', 5025, 'Tag', '');
 
 % Create the tcpip object if it does not exist
 % otherwise use the object that was found.
-if isempty(device)
-    device = tcpip('192.168.082', 5025);
+if isempty(cxg)
+    cxg = tcpip('192.168.082', 5025);
 else
-    fclose(device);
-    device = device(1);
+    fclose(cxg);
+    cxg = cxg(1);
 end
 
-% Connect to instrument object, obj1.
-
 device_buffer = 10000000*8;
-set(device,'OutputBufferSize',(device_buffer+125));
-% Connect to instrument object, obj1.
-fopen(device);
+set(cxg,'OutputBufferSize',(device_buffer+125));
 
-%% Отправка данных на генератор
+% Открыть соединение с инструментом
+fopen(cxg);
+
+%% Отправка данных на генератор CXG N5166B
+% этот блок общий как для LAN так и для USB и запускается после соединения с инструментом
 
 % Сбросить настройки, очистить регистры статуса и хранилище ошибок
-fprintf(device, '*RST;*CLS');
+fprintf(cxg, '*RST;*CLS');
 
 % Установить имя нашего массива
 ArbFileName = 'Pilot + OFDM';
 
-% I и Q составляющие отправляемых данных
-wave = [I;Q]; % get the real and imaginary parts
+% I и Q составляющие генерируются в первом блоке "Формирование проверочного сигнала"
+wave = [real(ref2_time);imag(ref2_time)]; % get the real and imaginary parts
 wave = wave(:)';    % transpose and interleave the waveform
 
-tmp = 1; % default normalization factor = 1
-% 
+maxval = max(abs([real(ref2_time), imag(ref2_time)]));
+
+% tmp = 1; % default normalization factor = 1
+tmp = max(abs([max(wave), min(wave)]));
 % % ARB binary range is 2's Compliment -32768 to + 32767
 % % So scale the waveform to +/- 32767 not 32768
 modval = 2^16;
@@ -469,7 +493,7 @@ scale = 2^15-1;
 scale = scale/tmp;
 wave = round(wave * scale);
 
-wave = wave*0.11;
+% wave = wave*0.11;
 %  Get it from double to unsigned int and let the driver take care of Big
 %  Endian to Little Endian for you  Look at ESG in Workspace.  It is
 %  property of the VISA driver (at least Agilent's
@@ -477,37 +501,50 @@ wave = wave*0.11;
 %  BIG ENDIAN to LITTLE ENDIAN.  The PC is BIG ENDIAN.  ESG is LITTLE
 wave = uint16(mod(modval + wave, modval));
 
+% Выключить RF выход перед записью
+fprintf(cxg, ':SOURce:RADio:ARB:STATE OFF');
+
 % Запись данных в генератор
-binblockwrite(device,wave,'uint16',[':MEMory:DATa:UNProtected "WFM1:' ArbFileName '", ']);
-fprintf(device,'\n');
+binblockwrite(cxg,wave,'uint16',[':MEMory:DATa:UNProtected "WFM1:' ArbFileName '", ']);
+fprintf(cxg,'\n');
 
 % Ожидание завершения предыдущей команды до конца
-fprintf(device, '*WAI');
+fprintf(cxg, '*WAI');
 
 playcommand = [':SOURce:RAD:ARB:WAV "ARBI:' ArbFileName '"'];
-fprintf(device, playcommand);
+fprintf(cxg, playcommand);
+
 % Устрановка центральной частоты
 fcent = 500e6; % Эта переменная загрузится в блоке для EXA n9010b
                % как центральная частота
-fprintf(device, ['FREQ ', num2str(fcent)]);
+fprintf(cxg, ['FREQ ', num2str(fcent)]);
+
 % Установка амплитуды
-fprintf(device, 'POWER -40');
+fprintf(cxg, 'POWER -40');
+
 % Установка частоты дискретизации
-fsamp = 20e6;
-fprintf(device,['RADio:ARB:SCLock:RATE ', num2str(fsamp)]);
+fsamp = 50e6;
+fprintf(cxg,['RADio:ARB:SCLock:RATE ', num2str(fsamp)]);
+
 % Включение RF output
-fprintf(device, 'OUTPut ON');
+fprintf(cxg, 'OUTPut ON');
+
 % Включение волны ARB
-fprintf(device, 'RADio:ARB ON');
-% Запрос ошибок и текущего имени ARB волны
-errors = query(device, 'SYST:ERR?');
+fprintf(cxg, 'RADio:ARB ON');
+
+% Запрос ошибок 
+errors = query(cxg, 'SYST:ERR?');
 fprintf(['Error respose: ', errors]);
-arbname = query(device, 'RAD:ARB:WAV?');
+
+% Вывести имя запущенного файла в консоль
+arbname = query(cxg, 'RAD:ARB:WAV?');
 fprintf(['Current ARB file: ', arbname]);
 
-fclose(device);
+% Закрыть соединение с инструментом
+fclose(cxg);
 
 %% Анализатор сигналов EXA N9010B USB visa
+% Этот блок игнорируется если соединение происходит через LAN см. блок "EXA N9010B LAN"
 
 exa = instrfind('Type', 'visa-usb', 'RsrcName', 'USB0::0x2A8D::0x1B0B::MY60240336::0::INSTR', 'Tag', '');
 
@@ -531,6 +568,8 @@ exa.timeout = 10;
 fopen(exa);
 
 %% Анализатор сигналов EXA N9010B LAN
+% Этот блок игнорируется если соединение происходит через USB см. блок "EXA N9010B USB visa"
+
 % Чтобы посмотреть ip используйте экранную клавиатуру. Win+R -> cmd ->
 % ipconfig/all
 exa = instrfind('Type', 'tcpip', 'RemoteHost', '192.168.073', 'RemotePort', 5025, 'Tag', '');
@@ -556,8 +595,12 @@ exa.timeout = 10;
 
 fopen(exa);
 
-%% Получение данных от анализатора сигналов
+%% Получение данных от анализатора сигналов EXA N9010B
+% этот блок общий как для LAN так и для USB и запускается после соединения с инструментом
+
 fprintf(exa, '*RST;*CLS');
+
+% 
 fprintf(exa, 'INST:SEL BASIC');
 
 fprintf(exa, ['FREQ:CENT ', num2str(cent_freq)]);
@@ -607,7 +650,7 @@ title(str_1);
 scatterplot(fft_com);
 title('созвездие спектра (fft com)');grid on;
 % Корреляция с сдвинутым спектром с нулями
-[corrr2, lags2] = xcorr(sum_time, compl);
+[corrr2, lags2] = xcorr(ref2_time, compl);
 [cor2, pos2] = max(corrr2);
 tlag = lags2(pos2);
 
@@ -621,10 +664,10 @@ plot(abs(corrr2));
 % Зная начало кадра, вырезаем массив длинной 2*L, т.е.
 % 2*10240. Это 2 OFDM символа
 try
-    newsum = compl(abs(tlag):abs(tlag) + length(sum_time));
+    newsum = compl(abs(tlag):abs(tlag) + length(ref2_time));
 catch me
     disp(me.message);
-    newsum = compl(abs(tlag) - length(sum_time):abs(tlag));
+    newsum = compl(abs(tlag) - length(ref2_time):abs(tlag));
 end
 newspec = fft(newsum);
 
@@ -654,24 +697,24 @@ datashift = fftshift(datacut);
 
 figure;
 subplot(2, 1, 1);
-plot(abs(pilshift));
+plot(abs(pilshift));title('pilshift');grid on;
 subplot(2, 1, 2);
-plot(abs(datashift));
+plot(abs(datashift));title('datashift');grid on;
 
-scatterplot(pilshift);
+scatterplot(pilshift);title('pilshift');
 % Оценка искажения спектра _|-|-|_
 ocen = pilshift./spec_pilot;
 figure;
-plot(abs(ocen));
-scatterplot(ocen);
+plot(abs(ocen));title('ocen');
+scatterplot(ocen);title('ocen');
 % scatterplot(newcut);
 % title('Созвездие вырезанного спектра');
 
 % восстановление data по передаточной функции вычисленной по pilot
 recov = datashift./ocen;
 figure;
-plot(abs(recov));
-scatterplot(recov);
+plot(abs(recov));title('recov');
+scatterplot(recov);title('recov');
 
 figure;
 subplot(2,2,1);
@@ -711,38 +754,162 @@ end
 err = biterr(bits_demod_r, bits(1648 + 1: 1648 +  1648));
 
 %% R&S (В разработке)
+close all;
 
 % Кнопка Setup -> General Setup -> Network address -> IP address
-
+% Собственный ip адресс инструмента 169.254.21.200
 % Find a tcpip object.
-RS = instrfind('Type', 'tcpip', 'RemoteHost', '192.168.0.80', 'RemotePort', 5025, 'Tag', '');
+RS = instrfind('Type', 'tcpip', 'RemoteHost', '169.254.21.200', 'RemotePort', 5025, 'Tag', '');
 
 % Create the tcpip object if it does not exist
 % otherwise use the object that was found.
 if isempty(RS)
-    RS = tcpip('192.168.0.80', 5025);
+    RS = tcpip('169.254.21.200', 5025);
 else
     fclose(RS);
     RS = RS(1);
 end
 
+% Установка буфера и времени ожидания
 RS.OutputBufferSize = 1e7;
 RS.InputBufferSize = 1e7;
-RS.timeout = 10;
+RS.timeout = 8;
 
-% Connect to instrument object, obj1.
+% Параметры измерения
+% Частота дискретизации должна быть ровно в 2 раза больше полосы
+% измеряемого сигнала
+fsampling = 5e6; % Полоса (BWIDth) устанавливается инструментом автоматически в зависимости от fsampling
+fcentral = 500e6;
+NumOfPoints = 100e3;
+
+% Открыть соединение с инструментом
 fopen(RS);
 
-% Communicating with instrument object, obj1.
-data1 = query(RS, '*IDN?');
-disp(data1);
-fprintf(RS, 'FREQ:CENT 500e6');
+% Сброс и очистка регистра статуса
+fprintf(RS, '*RST;*CLS');
 
-% Разрешение полосы
-fprintf(RS, 'BAND 5e6'); 
-fprintf(RS, 'FREQ:SPAN 10e6');
-data2 = query(RS, ':READ:WAV?'); % Как читать я не понимаю
+% Запрос имени инструмента
+data1 = query(RS, '*IDN?');
+disp(['Инструмент: ', data1]);
+
+% Установка нужного режима
+fprintf(RS, 'INSTrument IQ');
+% IQ, SANalyzer
+
+% Получение информации о режиме работы 
+mode = query(RS, 'INSTrument?');
+disp(['Режим: ', mode]);
+
+% fprintf(RS, 'INPut:DIQ:SRATe 20e6');
+insrate = query(RS, 'INPut:DIQ:SRATe?');
+disp(['Входная частота = ', insrate]);
+
+% Установка центральной частоты
+fprintf(RS, ['FREQ:CENT ', num2str(fcentral)]);
+
+% Одиночное измерение
+fprintf(RS, 'INITiate:CONTinuous OFF');
+
+% Установка частоты дискретизации
+fprintf(RS, ['TRACe:IQ:SRATe ', num2str(fsampling)]);
+sam = query(RS, 'TRACe:IQ:SRATe?');
+disp(['Частота дискретизации = ', sam]);
+
+% Установка количества точек измерения (Record Length)
+% В приложении IQWizard это поле "Count"
+% Количество снимаемых точек зависит от времени измерения, устанавливать можно только что-то одно
+% Если нужно установить время: fprintf(RS, 'SENS:SWE:TIME 1ms');
+% fprintf(RS, 'SENS:SWE:TIME 1ms');
+fprintf(RS, ['TRACe:IQ:RLENgth ' , num2str(NumOfPoints)]);
+rlen = query(RS, 'TRACe:IQ:RLENgth?');
+disp(['Количество точек = ', rlen]);
+
+% Количество свипов
+fprintf(RS, 'SWE:COUN 1');
+% fprintf(RS, 'INIT;*WAI');
+
+% Запрос ширины полосы измерения
+% Ширина полосы зависит от частоты дискретизации
+BandWidth = query(RS, 'TRACe:IQ:BWIDth?');
+disp(['Ширина полосы = ', BandWidth]);
+
+% Позволить изменениям отображаться на экране
+% в противном случае экран потемнеет и выведется надпись "REMOTE MODE"
+fprintf(RS, 'SYST:DISP:UPD ON');
+fprintf(RS, 'INIT; *WAI');
+
+try
+    data4 = query(RS, 'TRACe:IQ:DATA?'); 
+
+    numdata4 = str2num(data4);
+
+    Inum = numdata4(1:2:end);
+    Qnum = numdata4(2:2:end);
+
+    compl = complex(Inum, Qnum);
+
+    spec = fft(compl);
+
+    figure;
+    plot(abs(fftshift(spec)));
+    title(['Количество комплексных векторов = ', num2str(length(compl))]);
+    figure;
+    plot(abs(compl));
+    title('compl');
+
+    scatterplot(spec);title('spec');
+    scatterplot(compl);title('compl');
+catch me
+    disp(['Catched message: ', me.message]);
+end
+
 err = query(RS, ':SYST:ERR?');
-disp(err);
+disp(['Ошибка: ',err]);
 % meme = fscanf(RS);
-fclose(RS);
+% return
+fprintf(RS, 'INITiate:CONTinuous ON');
+% fclose(RS);
+
+%% Корреляция
+close all;
+
+% sig_time = ifft(spec_zeros);          -|_ 000000000 _|-|  10240
+% pil_time = ifft(pilot_zeros);         -|_ 000000000 _|-|  10240
+% ref2_time = [pil_time, sig_time];
+
+corrr3 = xcorr(pil_time, compl);
+figure;
+plot(abs(corrr3));title('pil time');
+
+corrr4 = xcorr(sig_time, compl);
+figure;
+plot(abs(corrr4));title('sig time');
+
+corrr2 = xcorr(ref2_time, compl);
+figure;
+plot(abs(corrr2));title('ref2 time');
+
+% spec_time = ifft(spectrum_shifted);       -|_ _|-|    1024
+% spec_time_pilot = ifft(pilot_shifted);    -|_ _|-|    1024
+% ref1_time = [spec_time_pilot, spec_time];
+
+corrr6 = xcorr(spec_time_pilot, compl);
+figure;
+plot(abs(corrr6));title('spec time pilot');
+
+corrr5 = xcorr(spec_time, compl);
+figure;
+plot(abs(corrr5));title('spec time');
+
+[corrr7, lag7] = xcorr(ref1_time, compl);
+figure;
+plot(abs(corrr7));title('ref1 time');
+
+[~, pos4] = max(abs(corrr7));
+t = lag7(pos4);
+
+cut = compl(abs(t):abs(t) + length(ref1_time));
+cut_spec = fft(cut);
+scatterplot(cut_spec);title('cut spec');
+figure;
+plot(abs(fftshift(cut_spec)));title('cut spec shifted');
