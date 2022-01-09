@@ -626,11 +626,11 @@ fprintf(exa,':READ:WAV0?');
 
 fprintf(exa,'*WAI');
 
-% l содержит сырые данные с анализатора типа <char>
+% exadata содержит сырые данные с анализатора типа <char>
 % '2.306786738E-02,1.153779309E-02,1.795095950E-02,...'
-l = fscanf(exa);
+exadata = fscanf(exa);
 % data массив чисел <double>
-data = str2num(l);
+data = str2num(exadata);
 % нечетные в inphase - 1, 3, 5, ...
 % четные в quad - 2, 4, 6, ...
 inphase = data(1:2:end);
