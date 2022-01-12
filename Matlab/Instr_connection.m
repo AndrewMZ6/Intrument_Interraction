@@ -1,6 +1,7 @@
 %% Необходимые предваительные установки
-% 1 Драйвер инструмента 
+% 1 Драйвер инструмента (на сайте производителя)
 % 2 Keysight Connection Expert, который является частью IO Libraries Siute(для устновки visa)
+% Или NI VISA
 
 % Переключение между блоками: Ctrl + стрелка вверх/вниз
 %% Формирование проверочного сигнала
@@ -90,6 +91,7 @@ figure;
 plot(abs(fft(pil_time)));
 
 % выделяем реальную (синфазную) и мнимую(квадратурную) части
+% REAL->I, IMAG->Q
 I = real(sig_time);
 Ip = real(pil_time);
 Q = imag(sig_time);
@@ -101,7 +103,7 @@ t_sig = [0:length(I) - 1]/fs;
 sig_carrQ = -sin(2*pi*fc*t_sig);
 sig_carrI = cos(2*pi*fc*t_sig);
 
-% Посдка на несущую
+% Посадка на несущую I и Q составляющих
 for i = 1:length(I)
     Ip_mod(i) = Ip(i)*sig_carrI(i);
     I_mod(i) = I(i)*sig_carrI(i);
@@ -112,12 +114,13 @@ for i = 1:length(Q)
     Q_mod(i) = Q(i)*sig_carrQ(i);
 end
 
+% Суммирование I и Q составляющих отдельно пилотов и отдельно данных
 for i = 1:length(I)
     pilot_to_wg(i) = Ip_mod(i) + Qp_mod(i);
     data_to_wg(i) = I_mod(i) + Q_mod(i);
 end
 
-% Формируем конечный массив, отправляемый на генератор
+% Формируем конечный массив путём конкатенации полученных ранее сумм
 SENT_TO_WAVEFORM_GENERATOR = [pilot_to_wg, data_to_wg];
 
 % как выглядит SENT_TO_WAVEFORM_GENERATOR
@@ -168,13 +171,6 @@ else
     WG_obj = WG_obj(1);
 end
 
-% Название вашего массива в инстументе
-name = 'my_waveforms';
-% Задание частоты дискретизации
-sRate = fs;
-% Задание величины амлитуды
-amp = 0.1;
-
 % Подстчет производится из расчёта 8 бит на 1 точку
 obj_buffer = length(SENT_TO_WAVEFORM_GENERATOR)*8;
 set (WG_obj,'OutputBufferSize',(obj_buffer+125));
@@ -205,13 +201,6 @@ else
     WG_obj = WG_obj(1);
 end
 
-% Название вашего массива в инстументе
-name = 'my_waveforms';
-% Задание частоты дискретизации
-sRate = fs;
-% Задание величины амлитуды
-amp = 0.1;
-
 % Подстчет производится из расчёта 8 бит на 1 точку
 obj_buffer = length(SENT_TO_WAVEFORM_GENERATOR)*8;
 set (WG_obj,'OutputBufferSize',(obj_buffer+125));
@@ -232,6 +221,13 @@ fprintf (WG_obj, '*IDN?');
 idn = fscanf (WG_obj);
 fprintf (idn)
 fprintf ('\n\n')
+
+% Название вашего массива в инстументе
+name = 'my_waveforms';
+% Задание частоты дискретизации
+sRate = fs;
+% Задание величины амлитуды
+amp = 0.1;
 
 % Создания полосы загрузки
 mes = ['Connected to ' idn ' sending waveforms.....'];
@@ -340,6 +336,122 @@ end
 % Закрыть соединение с инструментом
 fclose(WG_obj);
 
+%% CXG N5166B Vector Generator USB visa
+% Этот блок игнорируется если соединение происходит через LAN см. блок "CXG N5166B Vector Generator LAN"
+
+% Идентификатор (4 аргумент) берется из Keysight Connection Expert
+cxg = instrfind('Type', 'visa-usb', 'RsrcName', 'USB0::0x0957::0x1F01::MY59100546::0::INSTR', 'Tag', '');
+
+% Create the VISA-USB object if it does not exist
+% otherwise use the object that was found.
+if isempty(cxg)
+    cxg = visa('AGILENT', 'USB0::0x0957::0x1F01::MY59100546::0::INSTR');
+else
+    fclose(cxg);
+    cxg = cxg(1);
+end
+
+device_buffer = 10000000*8;
+set(cxg,'OutputBufferSize',(device_buffer+125));
+
+% Открыть соединение с инструментом
+fopen(cxg);
+
+%% CXG N5166B Vector Generator LAN
+% Этот блок игнорируется если соединение происходит через USB см. блок "CXG N5166B Vector Generator USB"
+
+% Чтобы посмотреть ip адрес нажмите кнопку Utility -> I/O config -> LAN setup
+cxg = instrfind('Type', 'tcpip', 'RemoteHost', '192.168.0.82', 'RemotePort', 5025, 'Tag', '');
+
+% Create the tcpip object if it does not exist
+% otherwise use the object that was found.
+if isempty(cxg)
+    cxg = tcpip('192.168.0.82', 5025);
+else
+    fclose(cxg);
+    cxg = cxg(1);
+end
+
+device_buffer = 10000000*8;
+set(cxg,'OutputBufferSize',(device_buffer+125));
+
+% Открыть соединение с инструментом
+fopen(cxg);
+
+%% Отправка данных на генератор CXG N5166B
+% этот блок общий как для LAN так и для USB и запускается после соединения с инструментом
+
+% Сбросить настройки, очистить регистры статуса и хранилище ошибок
+fprintf(cxg, '*RST;*CLS');
+
+% Установить имя нашего массива
+ArbFileName = 'Pilot + OFDM';
+
+% I и Q составляющие генерируются в первом блоке "Формирование проверочного сигнала"
+wave = [real(ref2_time);imag(ref2_time)]; % get the real and imaginary parts
+wave = wave(:)';    % transpose and interleave the waveform
+
+maxval = max(abs([real(ref2_time), imag(ref2_time)]));
+
+tmp = 1; % default normalization factor = 1
+% tmp = max(abs([max(wave), min(wave)]));
+% % ARB binary range is 2's Compliment -32768 to + 32767
+% % So scale the waveform to +/- 32767 not 32768
+modval = 2^16;
+scale = 2^15-1;
+scale = scale/tmp;
+wave = round(wave * scale);
+
+wave = wave*0.11;
+%  Get it from double to unsigned int and let the driver take care of Big
+%  Endian to Little Endian for you  Look at ESG in Workspace.  It is
+%  property of the VISA driver (at least Agilent's
+%  if your waveform is skrewy, suspect the NI driver of not changeing
+%  BIG ENDIAN to LITTLE ENDIAN.  The PC is BIG ENDIAN.  ESG is LITTLE
+wave = uint16(mod(modval + wave, modval));
+
+% Выключить RF выход перед записью
+fprintf(cxg, ':SOURce:RADio:ARB:STATE OFF');
+
+% Запись данных в генератор
+binblockwrite(cxg,wave,'uint16',[':MEMory:DATa:UNProtected "WFM1:' ArbFileName '", ']);
+fprintf(cxg,'\n');
+
+% Ожидание завершения предыдущей команды до конца
+fprintf(cxg, '*WAI');
+
+playcommand = [':SOURce:RAD:ARB:WAV "ARBI:' ArbFileName '"'];
+fprintf(cxg, playcommand);
+
+% Устрановка центральной частоты
+fcent = 500e6; % Эта переменная загрузится в блоке для EXA n9010b
+               % как центральная частота
+fprintf(cxg, ['FREQ ', num2str(fcent)]);
+
+% Установка амплитуды
+fprintf(cxg, 'POWER -40');
+
+% Установка частоты дискретизации
+fsamp = 20e6;
+fprintf(cxg,['RADio:ARB:SCLock:RATE ', num2str(fsamp)]);
+
+% Включение RF output
+fprintf(cxg, 'OUTPut ON');
+
+% Включение волны ARB
+fprintf(cxg, 'RADio:ARB ON');
+
+% Запрос ошибок 
+errors = query(cxg, 'SYST:ERR?');
+fprintf(['Error respose: ', errors]);
+
+% Вывести имя запущенного файла в консоль
+arbname = query(cxg, 'RAD:ARB:WAV?');
+fprintf(['Current ARB file: ', arbname]);
+
+% Закрыть соединение с инструментом
+fclose(cxg);
+
 %% Осциллограф DSOX1102G USB visa (LAN соединение отсутствует)
 % Идентификатор (4 аргумент) берется из Keysight Connection Expert
 OSCI_Obj = instrfind('Type', 'visa-usb', 'RsrcName', 'USB0::0x2A8D::0x1797::CN58056332::0::INSTR', 'Tag', '');
@@ -353,11 +465,11 @@ else
     OSCI_Obj = OSCI_Obj(1);
 end
 
-% Set the buffer size
+% Установка размера буфера
 OSCI_Obj.InputBufferSize = 1000000;
-% Set the timeout value
+% Установка времени ожидания
 OSCI_Obj.Timeout = 10;
-% Set the Byte order
+% Установка порядка следования байт
 OSCI_Obj.ByteOrder = 'littleEndian';
 % Open the connection
 fopen(OSCI_Obj);
@@ -427,122 +539,6 @@ RECIEVED_FROM_OSCI = waveform.RawData;
 % Закрыть соединение с инструментом
 fclose(OSCI_Obj);
 
-%% CXG N5166B Vector Generator USB visa
-% Этот блок игнорируется если соединение происходит через LAN см. блок "CXG N5166B Vector Generator LAN"
-
-% Идентификатор (4 аргумент) берется из Keysight Connection Expert
-cxg = instrfind('Type', 'visa-usb', 'RsrcName', 'USB0::0x0957::0x1F01::MY59100546::0::INSTR', 'Tag', '');
-
-% Create the VISA-USB object if it does not exist
-% otherwise use the object that was found.
-if isempty(cxg)
-    cxg = visa('AGILENT', 'USB0::0x0957::0x1F01::MY59100546::0::INSTR');
-else
-    fclose(cxg);
-    cxg = cxg(1);
-end
-
-device_buffer = 10000000*8;
-set(cxg,'OutputBufferSize',(device_buffer+125));
-
-% Открыть соединение с инструментом
-fopen(cxg);
-
-%% CXG N5166B Vector Generator LAN
-% Этот блок игнорируется если соединение происходит через USB см. блок "CXG N5166B Vector Generator USB"
-
-% Чтобы посмотреть ip нажмите кнопку Utility -> I/O config -> LAN setup
-cxg = instrfind('Type', 'tcpip', 'RemoteHost', '192.168.082', 'RemotePort', 5025, 'Tag', '');
-
-% Create the tcpip object if it does not exist
-% otherwise use the object that was found.
-if isempty(cxg)
-    cxg = tcpip('192.168.082', 5025);
-else
-    fclose(cxg);
-    cxg = cxg(1);
-end
-
-device_buffer = 10000000*8;
-set(cxg,'OutputBufferSize',(device_buffer+125));
-
-% Открыть соединение с инструментом
-fopen(cxg);
-
-%% Отправка данных на генератор CXG N5166B
-% этот блок общий как для LAN так и для USB и запускается после соединения с инструментом
-
-% Сбросить настройки, очистить регистры статуса и хранилище ошибок
-fprintf(cxg, '*RST;*CLS');
-
-% Установить имя нашего массива
-ArbFileName = 'Pilot + OFDM';
-
-% I и Q составляющие генерируются в первом блоке "Формирование проверочного сигнала"
-wave = [real(ref2_time);imag(ref2_time)]; % get the real and imaginary parts
-wave = wave(:)';    % transpose and interleave the waveform
-
-maxval = max(abs([real(ref2_time), imag(ref2_time)]));
-
-tmp = 1; % default normalization factor = 1
-% tmp = max(abs([max(wave), min(wave)]));
-% % ARB binary range is 2's Compliment -32768 to + 32767
-% % So scale the waveform to +/- 32767 not 32768
-modval = 2^16;
-scale = 2^15-1;
-scale = scale/tmp;
-wave = round(wave * scale);
-
-wave = wave*0.11;
-%  Get it from double to unsigned int and let the driver take care of Big
-%  Endian to Little Endian for you  Look at ESG in Workspace.  It is
-%  property of the VISA driver (at least Agilent's
-%  if your waveform is skrewy, suspect the NI driver of not changeing
-%  BIG ENDIAN to LITTLE ENDIAN.  The PC is BIG ENDIAN.  ESG is LITTLE
-wave = uint16(mod(modval + wave, modval));
-
-% Выключить RF выход перед записью
-fprintf(cxg, ':SOURce:RADio:ARB:STATE OFF');
-
-% Запись данных в генератор
-binblockwrite(cxg,wave,'uint16',[':MEMory:DATa:UNProtected "WFM1:' ArbFileName '", ']);
-fprintf(cxg,'\n');
-
-% Ожидание завершения предыдущей команды до конца
-fprintf(cxg, '*WAI');
-
-playcommand = [':SOURce:RAD:ARB:WAV "ARBI:' ArbFileName '"'];
-fprintf(cxg, playcommand);
-
-% Устрановка центральной частоты
-fcent = 500e6; % Эта переменная загрузится в блоке для EXA n9010b
-               % как центральная частота
-fprintf(cxg, ['FREQ ', num2str(fcent)]);
-
-% Установка амплитуды
-fprintf(cxg, 'POWER -40');
-
-% Установка частоты дискретизации
-fsamp = 50e6;
-fprintf(cxg,['RADio:ARB:SCLock:RATE ', num2str(fsamp)]);
-
-% Включение RF output
-fprintf(cxg, 'OUTPut ON');
-
-% Включение волны ARB
-fprintf(cxg, 'RADio:ARB ON');
-
-% Запрос ошибок 
-errors = query(cxg, 'SYST:ERR?');
-fprintf(['Error respose: ', errors]);
-
-% Вывести имя запущенного файла в консоль
-arbname = query(cxg, 'RAD:ARB:WAV?');
-fprintf(['Current ARB file: ', arbname]);
-
-% Закрыть соединение с инструментом
-fclose(cxg);
-
 %% Анализатор сигналов EXA N9010B USB visa
 % Этот блок игнорируется если соединение происходит через LAN см. блок "EXA N9010B LAN"
 
@@ -556,10 +552,6 @@ else
     fclose(exa);
     exa = exa(1);
 end
-
-acq_time = 2000e-6;
-samp_rate = fsamp;
-cent_freq = fcent;
 
 exa.OutputBufferSize = 1e7;
 exa.InputBufferSize = 1e7;
@@ -583,12 +575,6 @@ else
     exa = exa(1);
 end
 
-% Connect to instrument object, obj1.
-
-acq_time = 2000e-6;
-samp_rate = fsamp;
-cent_freq = fcent;
-
 exa.OutputBufferSize = 1e7;
 exa.InputBufferSize = 1e7;
 exa.timeout = 10;
@@ -598,10 +584,15 @@ fopen(exa);
 %% Получение данных от анализатора сигналов EXA N9010B
 % этот блок общий как для LAN так и для USB и запускается после соединения с инструментом
 
+acq_time = 2000e-6;
+samp_rate = fsamp;
+cent_freq = fcent;
+
 fprintf(exa, '*RST;*CLS');
 
-% 
+% Настройка режима и конфигурации
 fprintf(exa, 'INST:SEL BASIC');
+fprintf(exa, 'CONFigure:WAVeform');
 
 fprintf(exa, ['FREQ:CENT ', num2str(cent_freq)]);
 % set(exa, 'SATrigger', 'RFBurst');
@@ -615,7 +606,6 @@ fprintf(exa,':INIT:IMM');
 %Get IQ data
 fprintf(exa, [':WAV:SRAT ', num2str(samp_rate)]);
 
-% ----------------------- unpacked -----------------------#
 % Get the interface object
 % Tell it the precision
 fprintf(exa,':FORM:DATA ASCii');
@@ -759,12 +749,12 @@ close all;
 % Кнопка Setup -> General Setup -> Network address -> IP address
 % Собственный ip адресс инструмента 169.254.21.200
 % Find a tcpip object.
-RS = instrfind('Type', 'tcpip', 'RemoteHost', '169.254.21.200', 'RemotePort', 5025, 'Tag', '');
+RS = instrfind('Type', 'tcpip', 'RemoteHost', '192.168.0.78', 'RemotePort', 5025, 'Tag', '');
 
 % Create the tcpip object if it does not exist
 % otherwise use the object that was found.
 if isempty(RS)
-    RS = tcpip('169.254.21.200', 5025);
+    RS = tcpip('192.168.0.78', 5025);
 else
     fclose(RS);
     RS = RS(1);
@@ -778,9 +768,9 @@ RS.timeout = 8;
 % Параметры измерения
 % Частота дискретизации должна быть ровно в 2 раза больше полосы
 % измеряемого сигнала
-fsampling = 5e6; % Полоса (BWIDth) устанавливается инструментом автоматически в зависимости от fsampling
+fsampling = 40e6; % Полоса (BWIDth) устанавливается инструментом автоматически в зависимости от fsampling
 fcentral = 500e6;
-NumOfPoints = 100e3;
+NumOfPoints = 50e3;
 
 % Открыть соединение с инструментом
 fopen(RS);
@@ -913,3 +903,5 @@ cut_spec = fft(cut);
 scatterplot(cut_spec);title('cut spec');
 figure;
 plot(abs(fftshift(cut_spec)));title('cut spec shifted');
+
+fclose(RS);
