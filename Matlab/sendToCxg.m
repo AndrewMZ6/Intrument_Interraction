@@ -1,11 +1,11 @@
-function send_to_cxg(connectionID, data, fcent, fsamp, pLevel, ArbFileName)
+function sendToCxg(connectionID, data, fsamp, fcent, pLevel, ArbFileName)
 
 % send_to_cxg(connectionID, data, fcent, fsamp, pLevel, ArbFileName)
 %
 % connectionID - идентификатор USB соединения или IP адрес
 % data (ref2_time) - массив(в виде комплексных чисел), который будет записан
-% fcent - центральная частота(несущая)
 % fsamp - частота дискретизации
+% fcent - центральная частота(несущая)
 % pLevel - power level - мощность в децибелах
 % ArbАileName - имя файла в приборе
 %
@@ -26,8 +26,8 @@ end
 
 if (nargin < 6) ArbFileName = 'Untitled'; end
 if (nargin < 5) pLevel = -40; end
-if (nargin < 4) fsamp = 20e6; end
-if (nargin < 3) fcent = 500e6; end
+if (nargin < 4) fcent = 500e6; end
+if (nargin < 3) fsamp = 20e6; end
 
 % return;
 % default = {'USB0::0x0957::0x1F01::MY59100546::0::INSTR', 'MyPilot', ref2_time, 500e6, 20e6, -40};
