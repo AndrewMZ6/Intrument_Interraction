@@ -1,16 +1,9 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jan 14 17:42:43 2022
-
-@author: st13zabv
-"""
-
 import scipy
 import numpy as np
 import matplotlib.pyplot as plt
 
 # размер рандомной последовательности 1хN
-N = 100
+N = 1000
 
 # генерация рандомной последовательности
 bits = np.random.randint(low = 0, high = 2, size = [1, N])
@@ -31,14 +24,42 @@ for i in range(len(bits[0]) - 1):
             modulated.append(-1 - 1j)
             
 # размер защитного интервала
-gsize = 10
+gsize = 50
 
 # генерация защитного интервала
 guardInt = np.zeros([1, gsize])
 
 # добавление защитных интервалов к модулированным данным
-ofdm = list(guardInt[0][0:5]) + modulated + list(guardInt[0][0:5])
+ofdm = list(guardInt[0]) + modulated + list(guardInt[0])
+
+# для abs(ofdm) выдается ошибка
+# TypeError: bad operand type for abs(): 'list'
+# поэтому хитрим
+k = [abs(x) for x in ofdm]
+# можно было сделать и по другому
+# ofdm = np.array(ofdm)
+
+# применяем inverse fft
+timeDom = scipy.fft.ifft(ofdm)
+
+# построение графика
+fig, (ax1, ax2) = plt.subplots(2, 1)
+
+ax1.plot(k)
+# подпись графика, сетка, подписи осей
+ax1.set_title('freq domain')
+ax1.grid()
+ax1.set_xlabel('freq')
+ax1.set_ylabel('amp')
+
+ax2.plot(abs(timeDom))
+ax2.set_title('time domain')
+ax2.grid()
+ax2.set_ylabel('amp')
+ax2.set_xlabel('time')
 
 fig, ax = plt.subplots()
-ax.plot((ofdm))
+ax.scatter(np.real(np.array(ofdm)), np.imag(np.array(ofdm)))
+ax.grid()
+# показать график
 plt.show()
