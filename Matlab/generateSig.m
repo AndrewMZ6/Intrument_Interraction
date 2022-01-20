@@ -1,6 +1,6 @@
 function [ref2_time, L, spec_pilot, ref1_time, SENT_TO_WAVEFORM_GENERATOR] = generateSig(fs, L, fc, Fourier_length, Protection_Interval)
 
-% function [ref1_time, ref2_time, SENT_TO_WAVEFORM_GENERATOR] = generateSig(Fourier_length, Protection_Interval, N, fc, fs,L)
+% function [ref2_time, L, spec_pilot, ref1_time, SENT_TO_WAVEFORM_GENERATOR] = generateSig(fs, L, fc, Fourier_length, Protection_Interval)
 %
 % Fourier_length - длина Фурье OFDM символа
 % Protection_Interval - длина защитного интервала
@@ -9,7 +9,7 @@ function [ref2_time, L, spec_pilot, ref1_time, SENT_TO_WAVEFORM_GENERATOR] = gen
 % L - длина интерполированного символа (дополненного нулями)
 % ref1_time - пилот и данные во временной области (без дополнения нулями на нулевой частоте)
 % ref2_time - пилот и данные во временной области (дополненные нулями на нулевой частоте)
-% SENT_TO_WAVEFORM_GENERATOR - ref2_time, перенесённый на несущую fc
+% SENT_TO_WAVEFORM_GENERATOR - это сигнал ref2_time, перенесённый на несущую fc
 %
 % Функция
 
