@@ -96,7 +96,7 @@ fprintf(exa,':FORM:DATA ASCii');
 
 fprintf(exa,':READ:WAV0?');
 
-fprintf(exa,'*WAI');
+% fprintf(exa,'*WAI');
 
 % exadata содержит сырые данные с анализатора типа <char>
 % '2.306786738E-02,1.153779309E-02,1.795095950E-02,...'
