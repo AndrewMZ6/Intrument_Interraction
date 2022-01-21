@@ -2,20 +2,20 @@ p = [10e6, 20e6, 30e6, 40e6, 50e6, 60e6, 70e6, 80e6];
 for i = 1:100
 %     clc;
     close all;
-    disp(['----> Итерация ', num2str(i)])
+    disp(['----> iteration ', num2str(i)])
     h1 = p(randi(8));
     % Генерируем сигнал
     [ref, L, spec_pilot] = generateSig(h1);
-    disp(['частота для generateSig = ', num2str(h1)])
+    disp(['fs for generateSig = ', num2str(h1)])
     % Отправляем в генератор cxg
     h1 = p(randi(8));
     sendToCxg(getInstrID('cxg'), ref,h1);
-    disp(['частота для cxg = ', num2str(h1)])
+    disp(['fs for cxg = ', num2str(h1)])
     
     % Получаем данные с анализатора exa
     h1 = p(randi(8));
     a = getFromExa(getInstrID('exa'), h1);
-    disp(['частота для exa = ', num2str(h1)])
+    disp(['fs for exa = ', num2str(h1)])
     % Демодулируем
     demod(a, ref, L, spec_pilot);
     
