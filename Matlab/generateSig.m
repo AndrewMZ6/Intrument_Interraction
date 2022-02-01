@@ -1,161 +1,144 @@
-function [ref2_time, L, spec_pilot, ref1_time, SENT_TO_WAVEFORM_GENERATOR] = generateSig(fs, L, fc, Fourier_length, Protection_Interval)
+function [basebandInterp, L, specPilot, basebandNoInterp, passband] = generateSig(fs, L, fc, fourierLength, guardInterval)
 
-% function [ref2_time, L, spec_pilot, ref1_time, SENT_TO_WAVEFORM_GENERATOR] = generateSig(fs, L, fc, Fourier_length, Protection_Interval)
+% function [basebandInterp, L, specPilot, basebandNoInterp, passband] = generateSig(fs, L, fc, fourierLength, guardInterval)
 %
-% Fourier_length - длина Фурье OFDM символа
-% Protection_Interval - длина защитного интервала
+% fourierLength - длина Фурье OFDM символа
+% guardInterval - длина защитного интервала
 % fc - f carrier - несущая частота
 % fs - f sampling - частота дискретизации
 % L - длина интерполированного символа (дополненного нулями)
-% ref1_time - пилот и данные во временной области (без дополнения нулями на нулевой частоте)
-% ref2_time - пилот и данные во временной области (дополненные нулями на нулевой частоте)
-% SENT_TO_WAVEFORM_GENERATOR - это сигнал ref2_time, перенесённый на несущую fc
+% basebandNoInterp - пилот и данные во временной области (без дополнения нулями на нулевой частоте)
+% basebandInterp - пилот и данные во временной области (дополненные нулями на нулевой частоте)
+% passband - это сигнал basebandInterp, перенесённый на несущую fc
 %
 % Функция
 
 % Параметры по умолчанию
 if (nargin < 5) 
-    Protection_Interval = 100; end
+    guardInterval = 100; end
 if (nargin < 4) 
-    Fourier_length = 1024; end
+    fourierLength = 1024; end
 if (nargin < 3)
     fc = 10e6; end
 if (nargin < 2)
     L = 10*1024; end
 if (nargin < 1)
-    fs = 20e6; end
+    fs = 50e6; end
 
-% Формирование проверочного сигнала
-N = Fourier_length*4 + 2*Protection_Interval;
+% Формирование случайной битовой последовательности
+N = fourierLength*4 + 2*guardInterval;
 bits = randi([0, 1], 1, N);
-
-fstep = fs/L ;
-f = 0:fstep:fstep*(L - 1);
 
 % QPSK модуляция битовой последовательности bits
 k = 1;
 for i = 1:2:N
     if bits(i) == 1 && bits(i+1) == 1
-        mod_data(k) = 1 + 1i;
+        modData(k) = 1 + 1i;
     end
     if bits(i) == 1 && bits(i+1) == 0
-        mod_data(k) = 1 - 1i;
+        modData(k) = 1 - 1i;
     end
     if bits(i) == 0 && bits(i+1) == 1
-        mod_data(k) = -1 + 1i;
+        modData(k) = -1 + 1i;
     end
     if bits(i) == 0 && bits(i+1) == 0
-        mod_data(k) = -1 - 1i;
+        modData(k) = -1 - 1i;
     end
     
     k = k + 1;
 end
 
-% mod_data - это массив комплексных чисел, попрано созданный из массива
-% bits, где первому числу из пары присваивается реальная ось, а второму мнимая. Поэтому массив mod_data
+% modData - это массив комплексных чисел, попрано созданный из массива
+% bits, где первому числу из пары присваивается реальная ось, а второму мнимая. Поэтому массив modData
 % и в два раза меньше
 % Длина mod_data в 2 раза меньше N, т.к. на одну ПАРУ бит N приходится
 % только ОДНО значение
 
-% вырезаем данные длиной 824 из произвольного массива данных
-mod_data_send = mod_data(1:Fourier_length - 2*Protection_Interval); 
+% вырезаем данные длиной 824 из массива данных modData
+modDataSend = modData(1:fourierLength - 2*guardInterval); 
 % вырезаем пилотные данные длиной 824
-pilot_data = mod_data(Fourier_length - 2*Protection_Interval + 1: 2*Fourier_length - 4*Protection_Interval);
+pilotData = modData(fourierLength - 2*guardInterval + 1: 2*fourierLength - 4*guardInterval);
 % добавляем слева и справа защитные интервалы и 0 для несущей
-spectrum = [zeros(1, Protection_Interval - 1), mod_data_send(1:length(mod_data_send)/2), 0, mod_data_send(length(mod_data_send)/2+1:end), zeros(1, Protection_Interval)];
-spec_pilot=[zeros(1, Protection_Interval - 1), pilot_data(1:length(pilot_data)/2), 0, pilot_data(length(pilot_data)/2+1:end), zeros(1, Protection_Interval)];
+spectrum = [zeros(1, guardInterval - 1), modDataSend(1:length(modDataSend)/2), 0, modDataSend(length(modDataSend)/2+1:end), zeros(1, guardInterval)];
+specPilot=[zeros(1, guardInterval - 1), pilotData(1:length(pilotData)/2), 0, pilotData(length(pilotData)/2+1:end), zeros(1, guardInterval)];
 % Созданные нами спектры структурно выглядят следующим образом:
 % [99нулей, 412компл.значений,0длянесущей,412компл.значений, 100нулей]
 
 % cдвиг спектра делит спектр попалам и помещает правую часть
 % влево, а левую вправо
 % _|-|-|_  -->  -|_ _|-|
-spectrum_shifted = fftshift(spectrum);
-pilot_shifted = fftshift(spec_pilot);
+specShifted = fftshift(spectrum);
+pilotShifted = fftshift(specPilot);
 
 
 % Тест. ОБПФ
-spec_time = ifft(spectrum_shifted);
-spec_time_pilot = ifft(pilot_shifted);
-ref1_time = [spec_time_pilot, spec_time];
+specTime = ifft(specShifted);
+specTimePilot = ifft(pilotShifted);
+basebandNoInterp = [specTimePilot, specTime];
 
 % между сдвинутыми половинами спектра вставляем нули
 % L определяет длину получившегося массива
 % -|_ _|-|  -->  -|_00000000000000000000000000000_|-|
-spec_zeros = ([spectrum_shifted(1:Fourier_length/2), zeros(1, (L -Fourier_length)), spectrum_shifted(Fourier_length/2 + 1:end)]);
-pilot_zeros = ([pilot_shifted(1:Fourier_length/2), zeros(1, (L -Fourier_length)), pilot_shifted(Fourier_length/2 + 1:end)]);
+specZeros = ([specShifted(1:fourierLength/2), zeros(1, (L -fourierLength)), specShifted(fourierLength/2 + 1:end)]);
+pilotZeros = ([pilotShifted(1:fourierLength/2), zeros(1, (L -fourierLength)), pilotShifted(fourierLength/2 + 1:end)]);
 
 % переводим полученный спектр во временную область
-sig_time = ifft(spec_zeros);
-pil_time = ifft(pilot_zeros);
-ref2_time = [pil_time, sig_time];
+sigTime = ifft(specZeros);
+pilTime = ifft(pilotZeros);
+basebandInterp = [pilTime, sigTime];
 
 % выделяем реальную (синфазную) и мнимую(квадратурную) части
 % REAL->I, IMAG->Q
-I = real(sig_time);
-Ip = real(pil_time);
-Q = imag(sig_time);
-Qp = imag(pil_time);
+I = real(sigTime);
+Ip = real(pilTime);
+Q = imag(sigTime);
+Qp = imag(pilTime);
 
 % задаём массив времени, и несущие
 t_sig = [0:length(I) - 1]/fs;
 % t_sig = (0:1:L-1)/fs;
-sig_carrQ = -sin(2*pi*fc*t_sig);
-sig_carrI = cos(2*pi*fc*t_sig);
+sigCarrQ = -sin(2*pi*fc*t_sig);
+sigCarrI = cos(2*pi*fc*t_sig);
 
 % Посадка на несущую I и Q составляющих
 for i = 1:length(I)
-    Ip_mod(i) = Ip(i)*sig_carrI(i);
-    I_mod(i) = I(i)*sig_carrI(i);
+    IpMod(i) = Ip(i)*sigCarrI(i);
+    IMod(i) = I(i)*sigCarrI(i);
 end
 
 for i = 1:length(Q)
-    Qp_mod(i) = Qp(i)*sig_carrQ(i);
-    Q_mod(i) = Q(i)*sig_carrQ(i);
+    QpMod(i) = Qp(i)*sigCarrQ(i);
+    QMod(i) = Q(i)*sigCarrQ(i);
 end
 
 % Суммирование I и Q составляющих отдельно пилотов и отдельно данных
 for i = 1:length(I)
-    pilot_to_wg(i) = Ip_mod(i) + Qp_mod(i);
-    data_to_wg(i) = I_mod(i) + Q_mod(i);
+    pilotToWg(i) = IpMod(i) + QpMod(i);
+    dataToWg(i) = IMod(i) + QMod(i);
 end
 
 % Формируем конечный массив путём конкатенации полученных ранее сумм
-SENT_TO_WAVEFORM_GENERATOR = [pilot_to_wg, data_to_wg];
+passband = [pilotToWg, dataToWg];
 
-% как выглядит SENT_TO_WAVEFORM_GENERATOR
-sent_fft = fft(SENT_TO_WAVEFORM_GENERATOR);
-
-% figure(4)
-% subplot(2,1,1)
-% plot(abs(fft(SENT_TO_WAVEFORM_GENERATOR)))
-% 
-% subplot(2,1,2)
-% plot(sig_carrI)
-% hold on
-% plot(sig_carrQ)
-% hold off
-% xlim([1, 100]);
-% grid on
-% return
-% SENT_TO_WAVEFORM_GENERATOR = spectrum;
+% как выглядит спектр passband
+senfFFT = fft(passband);
 
 % Длительность сигнала = кол-точек*период дискретизации
 % С учетом интерполяии L точек
 t_L = (L/fs)*1e6; % микросекунды
 % Без учета интерполяции Fourier_length точек
-t_F = (Fourier_length/fs)*1e6;
+t_F = (fourierLength/fs)*1e6;
 
-
+% Сводная информация о полученных данных
 figure;
 subplot(2,2,1);
-plot( abs(spectrum_shifted));
-title('ref1 time spectrum (one part)');xlabel('n');ylabel('Amplitude');grid on;
+plot( abs(specShifted));
+title('basebandNoInterp');xlabel('n');ylabel('Amplitude');grid on;
 subplot(2,2,2);
-plot(abs(spec_zeros));
-title('ref2 time spectrum (one part)');xlabel('n');ylabel('Amplitude');grid on;
+plot(abs(specZeros));
+title('basebandInterp');xlabel('n');ylabel('Amplitude');grid on;
 subplot(2,2,3);
-plot(abs(sent_fft));
-title('SENT TO WAVEFORM GENERATOR spectrum');xlabel('n');ylabel('Amplitude');grid on;
+plot(abs(senfFFT));
+title('passband');xlabel('n');ylabel('Amplitude');grid on;
 
 return;
