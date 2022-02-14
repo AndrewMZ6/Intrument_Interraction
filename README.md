@@ -1,3 +1,3 @@
-# Intrument_Interraction
+# Intrument Interraction
 
 > This repository is devoted to instrument control manipulations using matlab and python
