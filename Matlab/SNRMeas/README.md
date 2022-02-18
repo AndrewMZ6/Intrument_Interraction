@@ -16,4 +16,4 @@
 
 функция `getRMS` является главным скриптом и запускается уже после генерации массива.
 
-![this is an image](https://github.com/AndrewMZ6/Intrument_Interraction/tree/main/Matlab/SNRMeas/img/10bits.png)
+![this is an image](10bits.png?raw=true "title")
