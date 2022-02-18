@@ -16,4 +16,4 @@
 
 функция `getRMS` является главным скриптом и запускается уже после генерации массива.
 
-![this is an image](img/10bits.jpg)
+![this is an image](imgasd/10bits.jpg)
