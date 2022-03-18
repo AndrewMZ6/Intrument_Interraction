@@ -10,3 +10,5 @@ error handling methods.
 `multiPathChan` - multipath signal propagation channel model. Takes number of rays, sampling frequency and reflecting signal as inputs.
 
 `Service` - additional class that contains static methods for auxiliary functionality. For instance spectrum shrinker and concatenater, showGraph and searchNAN.
+
+![untitled1](https://user-images.githubusercontent.com/40640833/158981511-2216f643-02d7-4395-ba01-4e99ccc654c1.png)
