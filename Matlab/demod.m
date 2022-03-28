@@ -9,11 +9,11 @@ fftsize = 1024; % эту величину по идее надо принима�
 [m2, n2] = size(quad);
 
 if isempty(inphase)
-    error('Что то пошло не так! Принятые массивы оказались пусты!')
+    error('something went wrong! The recieved arrays are empty!')
 end
 
 if m1 ~= m2
-    error('количество строк в принятых I и Q не совпадают!')
+    error('string numbers of I and Q don"t match!')
 else
     if n1 ~= n2
 %         error(['n1 и n2 не совпадают! n1 = ', num2str(length(n1)), ', n2 = ', num2str(length(n2))])
