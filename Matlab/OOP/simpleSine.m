@@ -5,7 +5,7 @@ classdef ofdm
        N = 1024
        
     end
-    
+    % what is this? Oh nevermind it's just another comment :)    
     properties (Dependent = true)
         t, f, signal_time_domain, spectrum
     end
