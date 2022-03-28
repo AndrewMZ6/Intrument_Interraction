@@ -26,6 +26,8 @@ else
     end
 end
 
+% doing this comment to check staging in git
+
 try
     % создаём комплексный массив
     compl = complex(inphase, quad);
