@@ -170,16 +170,18 @@ disp(['Полезный мощнее помехи на: ' , num2str(usefulToInte
 
 figure;
 h=gca; 
-surf(snrArray, usefulToInterfDB_Ar, errArrayWithComp);
+surf(snrArray, usefulToInterfDB_Ar, errArrayWithComp); hold on;
 xlabel('SNR, dB'); ylabel('Puseful / Pinterf, dB');
 zlabel('BER');
+title('С компенсацией');
 set(h,'zscale','log');
 
-figure;
+% figure;
 h=gca; 
 surf(snrArray, usefulToInterfDB_Ar, errArray);
 xlabel('SNR, dB'); ylabel('Puseful / Pinterf, dB');
 zlabel('BER');
+title('Без компенсации');
 set(h,'zscale','log');
 
 figure;
@@ -187,6 +189,7 @@ h=gca;
 surf(snrArray, usefulToInterfDB_Ar, errNoCompNoInterf);
 xlabel('SNR, dB'); ylabel('Puseful / Pinterf, dB');
 zlabel('BER');
+title('До смешивания');
 set(h,'zscale','log');
 
 figure;
