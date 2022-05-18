@@ -7,8 +7,8 @@ snrComp = 30;
 % SNR в приёмо-передающем тракте
 % snrRxTx = 10;
 
-snrArray =  50:-1:-5;
-plevel = -10:1:10;
+snrArray =  50:-0.1:-5;
+plevel = -10:0.1:10;
 
 
 % Preallocating arrays
@@ -16,6 +16,7 @@ errArrayWithComp = zeros(length(plevel), length(snrArray));
 errNoCompNoInterf = zeros(length(plevel), length(snrArray));
 errArray = zeros(length(plevel), length(snrArray));
 lev = zeros(length(plevel), length(snrArray));
+usefulToInterfDB_Ar = zeros(1, length(plevel));
 
 % набор коэффициентов
 
@@ -174,6 +175,19 @@ xlabel('SNR, dB'); ylabel('Puseful / Pinterf, dB');
 zlabel('BER');
 set(h,'zscale','log');
 
+figure;
+h=gca; 
+surf(snrArray, usefulToInterfDB_Ar, errArray);
+xlabel('SNR, dB'); ylabel('Puseful / Pinterf, dB');
+zlabel('BER');
+set(h,'zscale','log');
+
+figure;
+h=gca; 
+surf(snrArray, usefulToInterfDB_Ar, errNoCompNoInterf);
+xlabel('SNR, dB'); ylabel('Puseful / Pinterf, dB');
+zlabel('BER');
+set(h,'zscale','log');
 
 figure;
 plot(snrArray, lev(1, :));
@@ -181,3 +195,4 @@ grid on;
 xlabel('SNR, dB');
 ylabel('Compensation, dB');
 title('Уровень компенсации');
+
