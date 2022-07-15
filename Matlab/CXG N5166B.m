@@ -1,5 +1,5 @@
 %% send to CXG
-% Find a VISA-USB object.
+% Find a VISA-USB object.adasd
 device = instrfind('Type', 'visa-usb', 'RsrcName', 'USB0::0x0957::0x1F01::MY59100546::0::INSTR', 'Tag', '');
 
 % Create the VISA-USB object if it does not exist
